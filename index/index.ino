@@ -1,12 +1,11 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <math.h>
-#include <SparkFunLSM9DS1.h>
+#include <SFE_LSM9DS0.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP8266.h>
 Adafruit_SSD1306 display(4);
-LSM9DS1 imu;
 #define IOT 1
 #define wifiSerial Serial1          // for ESP chip
 #define LSM9DS1_M  0x1E //
@@ -33,6 +32,7 @@ uint8_t  mode   = 1, // Current animation effect
 #define GPSSerial Serial2
 Adafruit_GPS GPS(&GPSSerial);
 
+LSM9DS0 imu(MODE_I2C, LSM9DS1_M, LSM9DS1_AG);
 
 //TO SKIP CALIBRATION, DEFINE OFF_X and OFF_Y and set CALIBRATE to false
 #define OFF_X 0
@@ -236,25 +236,34 @@ void setup() {
 
 
 
-  Serial.begin(115200);
+
+
+
+
+  Serial.begin(9600);
+  delay(1000);
   Serial.print("IOTLONG-ON");
 
+
+  uint16_t status = imu.begin();
+  
   // Set up Neopixel strip
   pixels.begin();
   pixels.setBrightness(50); // 1/3 brightness
   delay(2500);
 
-  // Set up IMU
-  imu.settings.device.commInterface = IMU_MODE_I2C;
-  imu.settings.device.mAddress = LSM9DS1_M;
-  imu.settings.device.agAddress = LSM9DS1_AG;
+  Serial.println("Pixels Started");
+  
   if (!imu.begin())
   {
     while (1) {
       Serial.println("Comm Failure with LSM9DS1");
-      delay(500);
+      delay(1000);
     }
   }
+  Serial.println("IMU STARTED");
+  
+
 
   // Set up GPS
   // 9600 NMEA is the default baud rate for Adafruit MTK GPS's
@@ -265,6 +274,8 @@ void setup() {
   // Set the update rate to 1 Hz
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
 
+
+  Serial.println("GPS STARTED");
 
   // Calibrate
   Serial.print("IoT-Long...");
@@ -300,6 +311,7 @@ void setup() {
     while (!wifi.isConnected()); //wait for connection
     MAC = wifi.getMAC();
   }
+  Serial.println("WIFI STARTED");
   randomSeed(analogRead(0));//seed random number
   pinMode(PIN, OUTPUT);
 }
