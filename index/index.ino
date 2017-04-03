@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <math.h>
-#include <SFE_LSM9DS0.h>
+#include <SparkFunLSM9DS1.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP8266.h>
@@ -10,11 +10,12 @@ Adafruit_SSD1306 display(4);
 #define wifiSerial Serial1          // for ESP chip
 #define LSM9DS1_M  0x1E //
 #define LSM9DS1_AG  0x6B //
+LSM9DS1 imu;
 String MAC = "";
-//#define SSID "6S08B"       // network SSID and password
-//#define PASSWORD "6S086S08"
-#define SSID "MIT"       // network SSID and password
-#define PASSWORD ""
+#define SSID "6s08"       // network SSID and password
+#define PASSWORD "iesc6s08"
+//#define SSID "MIT"       // network SSID and password
+//#define PASSWORD ""
 //#define SSID "EECS-MTL-RLE"       // network SSID and password
 //#define PASSWORD ""
 #include <Adafruit_NeoPixel.h>
@@ -32,7 +33,6 @@ uint8_t  mode   = 1, // Current animation effect
 #define GPSSerial Serial2
 Adafruit_GPS GPS(&GPSSerial);
 
-LSM9DS0 imu(MODE_I2C, LSM9DS1_M, LSM9DS1_AG);
 
 //TO SKIP CALIBRATION, DEFINE OFF_X and OFF_Y and set CALIBRATE to false
 #define OFF_X 0
@@ -67,7 +67,7 @@ int timeBetweenStatusUpdates = 30000;
 String lastCall;
 
 float ax, ay, az, magAccel=0;         // acceleration components
-float magVelocity=0;                  
+float magVelocity=0;
 int timeOfMagAccel=0;
 int timeOfLastPrint = 0;
 
@@ -235,6 +235,17 @@ Compass compass;
 void setup() {
 
 
+  // Set up IMU
+  imu.settings.device.commInterface = IMU_MODE_I2C;
+  imu.settings.device.mAddress = LSM9DS1_M;
+  imu.settings.device.agAddress = LSM9DS1_AG;
+  if (!imu.begin())
+  {
+    while (1) {
+      Serial.println("Comm Failure with LSM9DS1");
+      delay(500);
+    }
+  }
 
 
 
@@ -246,14 +257,14 @@ void setup() {
 
 
   uint16_t status = imu.begin();
-  
+
   // Set up Neopixel strip
   pixels.begin();
   pixels.setBrightness(50); // 1/3 brightness
   delay(2500);
 
   Serial.println("Pixels Started");
-  
+
   if (!imu.begin())
   {
     while (1) {
@@ -262,7 +273,7 @@ void setup() {
     }
   }
   Serial.println("IMU STARTED");
-  
+
 
 
   // Set up GPS
@@ -321,10 +332,10 @@ void loop() {
   delay(20);
 
   // to view user interface, go to
-  // http://iesc-s2.mit.edu/student_code/anshula/dev1/sb2.py?username=iotlong&password=damnanshula
+  // http://iesc-s2.mit.edu/6S08dev/jodalyst/final/sb2.py?username=iotlong&password=damnanshula
 
   int curTime = millis();
-  
+
   // continue updating orientation if we're navigating somewhere
   if ((targetPlace != "") && (curTime - lastOrientationTime > timeBetweenOrientations)) {
     lastOrientationTime = curTime;
@@ -355,7 +366,7 @@ String checkForLastCall() {
 
     String domain = "iesc-s2.mit.edu";
     int port = 80;
-    String folder = "/student_code/anshula/dev1/sb3.py";
+    String folder = "/6S08dev/jodalyst/final/sb3.py";
 
     String getParams = "recipient=iotlong";
     wifi.sendRequest(GET, domain, port, folder, getParams);
@@ -397,7 +408,7 @@ void executeLastCall(String lastCall) {
   } else if (lastCall.indexOf("navigateTo(") == 0) {
     Serial.println("\n\n************\nNavigating\n*************"); // navigate to destination
     navigateTo(lastCall);
-  } 
+  }
 //  else if (lastCall.indexOf("distance()") == 0) {
 //    Serial.println("\n\n************\nTotal Distance Traveled Is:\n*************\n\n"); // print out total distance traveled
 //  } else if (lastCall.indexOf("velocity()") == 0) {
@@ -453,7 +464,7 @@ void printGPS()
 
     Serial.println("Got new GPS data!  Here are the coordinates:");
     Serial.print(gpsCoords[0]); Serial.print(", "); Serial.println(gpsCoords[1]);
-    
+
     if (start_lat==0 && start_lon==0) {
       //convert degrees and minutes to flat decimals
       start_lat=gps_data.lat.substring(0, 2).toFloat()+1/60*gps_data.lat.substring(2).toFloat();
@@ -468,12 +479,12 @@ void printGPS()
 
       float lat1=start_lat;
       float lon1=start_lon;
-      
+
       int R = 6371; // Radius of the earth in km
       float dLat = (lat2-lat1)* (PI/180);  // convert to radians below
-      float dLon = (lon2-lon1)* (PI/180); 
+      float dLon = (lon2-lon1)* (PI/180);
       float a = sin(dLat/2) * sin(dLat/2) + cos(lat1* (PI/180)) * cos(lat2* (PI/180)) * sin(dLon/2) * sin(dLon/2) ;
-      float c = 2 * atan2(sqrt(a), sqrt(1-a)); 
+      float c = 2 * atan2(sqrt(a), sqrt(1-a));
       distance = R * c; // Distance in km
       Serial.print("Distance is");Serial.print(distance);Serial.println("km");
     }
@@ -500,7 +511,7 @@ void updateGPS() {
         Serial.println("Just got first line");
         doneWithFirstLoop = 1;
       }
-      
+
       else {
 
         if (data.indexOf("GPRMC") != -1) {
@@ -536,22 +547,22 @@ void updateAccel()
   // imu.ax, imu.ay, and imu.az variables with the most current data.
 
   imu.readAccel();
-  
+
   // calculate acceleration in g's and store in ax, ay, and az
   ax = (float) imu.ax * 2 / 32767;
   ay = (float) imu.ay * 2 / 32767;
   az = (float) imu.az * 2 / 32767;
-  
+
   // calculate difference in accelerations
   float magAccel2 = sqrt(ax * ax + ay * ay)*9.81; // in meters/second^2
   float magAccel1 = magAccel;
   float da = magAccel2-magAccel1;
-  
+
   //calculate difference in time
   int time2 = millis();
   int time1 = timeOfMagAccel;
   int dt = time2-time1;
-  
+
   // multiply to get mag velocity
   magVelocity = da*dt;
 
@@ -559,10 +570,10 @@ void updateAccel()
   if (time1==0) {
     magVelocity=0;
   }
-  
-  
+
+
   // print to serial port (aka USB port)
-  
+
 
   // update last time and last magaccel
   magAccel = magAccel2;
@@ -574,13 +585,13 @@ void printAccel()
   if ((millis() - timeOfLastPrint) > 2000) {
     Serial.print("Acceleration in x,y Direction:");
     Serial.println(magAccel, 4);
-    
+
     Serial.print("Velocity in x,y Direction:");
     Serial.println(magVelocity, 4);
-    
+
     timeOfLastPrint=millis();
   }
-  
+
 }
 
 
@@ -590,27 +601,31 @@ void send_status_update() {
 
 
   Serial.println("Sending status update of velocity and distance to website");
-      
+
   String msg = "";
   msg+="Traveled  " + String(distance) + " km. ";
   msg+="Velocity is " + String(magVelocity) + " m/s. ";
 
+
+
+
+
   String domain = "iesc-s2.mit.edu";
   int port = 80;
   // http://iesc-s2.mit.edu/student_code/anshula/lab05/L05B.py
-  String path = "/student_code/anshula/lab05/L05B.py";
-  
+  String path = "/6S08dev/jodalyst/final/L05B.py";
+
   String postParams = "&platform=teensy&recipient=person1&message=" + msg;
 
   // true means auto-retry after certain amount of time
-  wifi.sendRequest(POST, domain, port, path, postParams, false); 
+  wifi.sendRequest(POST, domain, port, path, postParams, false);
 
   // results of post request can be seen here
   // http://iesc-s2.mit.edu/student_code/anshula/lab05/L05B.py?recipient=person1&platform=browser
 
   // or from the main page here
   // http://iesc-s2.mit.edu/student_code/anshula/dev1/sb2.py?username=iotlong&password=damnanshula
-  
+
 }
 
 
@@ -630,7 +645,7 @@ String getPath(String destination, float gpsCoords[]) {
   // http://iesc-s2.mit.edu/student_code/anshula/dev1/sb1.py
   String domain = "iesc-s2.mit.edu";
   int port = 80;
-  String path = "/student_code/anshula/dev1/sb1.py";
+  String path = "/6S08dev/jodalyst/final/sb1.py";
 
   String getParams = "origin_lat=" + originLat +
                      "&origin_lon=" + originLon +
@@ -820,7 +835,3 @@ void updateOrientation() {
   orientLight(orientation_angle, gpsCoords, path[path_index]);
 
 }
-
-
-
-
